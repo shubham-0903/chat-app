@@ -1,0 +1,11 @@
+2025-11-01 14:07:23 [[32minfo[39m] MongoDB connected successfully
+2025-11-01 14:07:23 [[32minfo[39m] API Server running on http://localhost:4000
+2025-11-01 14:11:17 [[32minfo[39m] MongoDB connected successfully
+2025-11-01 14:11:17 [[32minfo[39m] API Server running on http://localhost:4000
+2025-11-01 14:14:09 [[32minfo[39m] MongoDB connected successfully
+2025-11-01 14:14:09 [[32minfo[39m] API Server running on http://localhost:4000
+2025-11-01 14:15:39 [[32minfo[39m] MongoDB connected successfully
+2025-11-01 14:15:39 [[32minfo[39m] API Server running on http://localhost:4000
+2025-11-01 14:15:45 [[32minfo[39m] MongoDB connected successfully
+2025-11-01 14:15:45 [[32minfo[39m] API Server running on http://localhost:4000
+2025-11-01 14:15:51 [[32minfo[39m] ::1 - - [01/Nov/2025:08:45:51 +0000] "GET /api/health HTTP/1.1" 200 88 "-" "PostmanRuntime/7.45.0"
