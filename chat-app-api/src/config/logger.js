@@ -13,8 +13,7 @@ const logger = createLogger({
     logFormat
   ),
   transports: [
-    new transports.Console(),
-    new transports.File({ filename: "logs/server.log" })
+    new transports.Console()
   ],
 });
 
