@@ -5,6 +5,9 @@ const connectDB = require("./src/config/db");
 const logger = require("./src/config/logger");
 const routes = require("./src/routes");
 const morgan = require("morgan");
+const passport = require("passport");
+const setupPassport = require("./src/config/passport");
+
 
 
 const app = express();
@@ -20,6 +23,8 @@ app.use(
     },
   })
 );
+app.use(passport.initialize());
+setupPassport(passport);
 
 // Routes
 app.use("/api", routes);
