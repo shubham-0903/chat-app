@@ -1,0 +1,1 @@
+module.exports = { JWT_EXPIRES_IN: "1d" };
