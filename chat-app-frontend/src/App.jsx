@@ -6,6 +6,7 @@ import HomePage from "./pages/HomePage";
 import { useAuth } from "./hooks/useAuth";
 import PublicRoute from "./routes/PublicRoute";
 import NotFoundPage from "./pages/NotFoundPage";
+import ChatPage from "./pages/ChatPage";
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -23,6 +24,15 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <HomePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
               </ProtectedRoute>
             }
           />
