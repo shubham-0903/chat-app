@@ -3,7 +3,8 @@ import { io } from "socket.io-client";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
-const SOCKET_URL = import.meta.env.VITE_CHAT_SERVER_URL;
+// const SOCKET_URL = 'import.meta.env.VITE_CHAT_SERVER_URL';
+const SOCKET_URL = 'http://localhost:3000'
 
 export default function ChatPage() {
   const { user } = useAuth();
@@ -146,6 +147,17 @@ export default function ChatPage() {
         timestamp: msg.timestamp
       }));
       setMessages(historyMessages);
+    });
+
+    socket.on("blocked_user", (data) => {
+      console.warn("Blocked user event received:", data);
+      setIsSearching(false);
+      setPartner(null);
+      setRoomId(null);
+      setMessages([]);
+
+      // Show an alert or message to the user
+      alert( "You are temporarily blocked from chatting.");
     });
 
     // Cleanup function

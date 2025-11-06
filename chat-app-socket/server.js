@@ -7,6 +7,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const morgan = require("morgan");
 const logger = require("./src/config/logger");
+const { initRabbitMQ, sendToQueue } = require('./src/config/rabbitmq');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +32,7 @@ app.use(
 // Import models
 const ChatMessage = require('./models/ChatMessage');
 const ChatSession = require('./models/ChatSession');
+const BlockedUser = require('./models/BlockedUser');
 
 // Redis client setup
 const redisClient = redis.createClient({
@@ -84,6 +86,14 @@ io.on('connection', (socket) => {
     try {
       // Check if queue is empty
       const queueLength = await redisClient.lLen(QUEUE_KEY);
+      const blocked = await BlockedUser.findOne({ userId });
+
+      if (blocked) {
+        socket.emit('blocked_user', { message: 'You are temporarily blocked from starting a chat.' });
+        logger.warn(`Blocked user ${userId} attempted to start chat`);
+        return;
+      }
+
       
       if (queueLength === 0) {
         // Add user to queue
@@ -183,6 +193,13 @@ io.on('connection', (socket) => {
     
     try {
       // Save message to MongoDB
+      const blocked = await BlockedUser.findOne({ userId: socket.userId });
+      if (blocked) {
+        socket.emit('blocked_user', { message: 'You are temporarily blocked from sending messages.' });
+        logger.warn(`Blocked user ${socket.userId} attempted to send message`);
+        return;
+      }
+
       const chatMessage = new ChatMessage({
         roomId: roomId,
         fromUserId: socket.userId,
@@ -209,6 +226,7 @@ io.on('connection', (socket) => {
         timestamp: new Date().toISOString()
       });
       console.log(roomId, '---roomId---')
+      await sendToQueue({ userId: socket.userId, message, sentAt: new Date().toISOString() });
       
       console.log('Message sent', { roomId, username, message });
     } catch (error) {
@@ -351,6 +369,11 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
+server.listen(PORT, async () => {
+  try {
+    await initRabbitMQ();
+    logger.info(`Server running on port ${PORT}`);
+  } catch (error) {
+    logger.error('Failed to initialize RabbitMQ', { error: error.message });
+  }
 });
