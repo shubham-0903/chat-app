@@ -160,6 +160,17 @@ export default function ChatPage() {
       alert( "You are temporarily blocked from chatting.");
     });
 
+    socket.on("partner_blocked", (data) => {
+      console.warn("Partner blocked:", data);
+      setIsSearching(false);
+      setPartner(null);
+      setRoomId(null);
+      setMessages([]);
+
+      // Show an alert or message to the user
+      alert( "Your partner is temporarily blocked from chatting.");
+    });
+
     // Cleanup function
     return () => {
       console.log(" Cleaning up socket connection");

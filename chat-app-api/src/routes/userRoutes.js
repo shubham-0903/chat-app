@@ -8,7 +8,7 @@ const {
   profileHandler,
   logoutHandler,
 } = require("../controllers/userController");
-const authMiddleware = require("../middleware/authMiddleware");
+const {authMiddleware} = require("../middleware/authMiddleware");
 
 // Routes
 router.post("/signup", signupHandler);
