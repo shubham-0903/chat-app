@@ -71,6 +71,17 @@ io.on('connection', (socket) => {
   // Handle user login
   socket.on('user_login', (userData) => {
     const { userId, username } = userData;
+
+    // If this user already has a socket, disconnect it
+    const existingSocketId = userSocketMap.get(userId);
+    if (existingSocketId && io.sockets.sockets.get(existingSocketId)) {
+      const oldSocket = io.sockets.sockets.get(existingSocketId);
+      oldSocket.emit('session_ended', { message: 'You logged in from another device or tab.' });
+      oldSocket.disconnect(true);
+      logger.info('Previous socket disconnected for duplicate login', { userId, existingSocketId });
+    }
+
+    // Register new socket
     userSocketMap.set(userId, socket.id);
     socket.userId = userId;
     socket.username = username;
@@ -79,113 +90,96 @@ io.on('connection', (socket) => {
 
   // Handle finding a chat partner
   socket.on('find_chat', async (userData) => {
-    const { userId, username } = userData;
-    
-    logger.info('User looking for chat partner', { userId, username });
-    
-    try {
-      // Check if queue is empty
-      const queueLength = await redisClient.lLen(QUEUE_KEY);
-      const blocked = await BlockedUser.findOne({ userId });
+  const { userId, username } = userData;
 
-      if (blocked) {
-        socket.emit('blocked_user', { message: 'You are temporarily blocked from starting a chat.' });
-        logger.warn(`Blocked user ${userId} attempted to start chat`);
-        return;
-      }
+  logger.info('User looking for chat partner', { userId, username });
 
-      
-      if (queueLength === 0) {
-        // Add user to queue
-        const userInfo = JSON.stringify({
-          userId,
-          username,
-          socketId: socket.id
-        });
-        
-        await redisClient.lPush(QUEUE_KEY, userInfo);
-        logger.info('User added to queue', { userId, username, queueLength: queueLength + 1 });
-        
-        socket.emit('waiting_for_partner', {
-          message: 'Looking for a chat partner...'
-        });
-      } else {
-        // Get a user from queue
-        const partnerInfo = await redisClient.rPop(QUEUE_KEY);
-        
-        if (partnerInfo) {
-          const partner = JSON.parse(partnerInfo);
-          
-          // Create a room
-          const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          
-          // Join both users to the room
-          socket.join(roomId);
-          const partnerSocket = io.sockets.sockets.get(partner.socketId);
-          if (partnerSocket) {
-            partnerSocket.join(roomId);
-          }
-          
-          // Store room info in memory
-          const roomData = {
-            user1: { userId, username, socketId: socket.id },
-            user2: { userId: partner.userId, username: partner.username, socketId: partner.socketId }
-          };
-          activeRooms.set(roomId, roomData);
-          
-          // Create chat session in MongoDB
-          try {
-            const chatSession = new ChatSession({
-              roomId: roomId,
-              participants: [
-                { userId: userId, socketId: socket.id },
-                { userId: partner.userId, socketId: partner.socketId }
-              ],
-              startedAt: new Date(),
-              metadata: {
-                user1: { userId, username },
-                user2: { userId: partner.userId, username: partner.username }
-              }
-            });
-            
-            await chatSession.save();
-            logger.info('Chat session created', { 
-              roomId, 
-              user1: username, 
-              user2: partner.username 
-            });
-          } catch (error) {
-            logger.error('Error creating chat session', { error: error.message, roomId });
-          }
-          
-          // Notify both users
-          socket.emit('chat_started', {
-            roomId,
-            partner: partner.username,
-            message: `You are now chatting with ${partner.username}`
-          });
-          
-          if (partnerSocket) {
-            partnerSocket.emit('chat_started', {
-              roomId,
-              partner: username,
-              message: `You are now chatting with ${username}`
-            });
-          }
-          
-          logger.info('Chat room created', { 
-            roomId, 
-            user1: username, 
-            user2: partner.username 
-          });
-        }
-      }
-    } catch (error) {
-      console.log(error)
-      logger.error('Error in find_chat', { error: error.message, userId, username });
-      socket.emit('error', { message: 'Failed to find chat partner' });
+  try {
+    const blocked = await BlockedUser.findOne({ userId });
+    if (blocked) {
+      socket.emit('blocked_user', { message: 'You are temporarily blocked from starting a chat.' });
+      return;
     }
-  });
+
+    let queue = await redisClient.lRange(QUEUE_KEY, 0, -1);
+    let partnerInfo = null;
+
+    // Remove self entries (if user was already waiting)
+    for (let i = 0; i < queue.length; i++) {
+      const queuedUser = JSON.parse(queue[i]);
+      if (queuedUser.userId === userId) {
+        await redisClient.lRem(QUEUE_KEY, 1, queue[i]);
+        logger.info('Removed duplicate self-entry from queue', { userId });
+      }
+    }
+
+    // Refresh queue after removal
+    queue = await redisClient.lRange(QUEUE_KEY, 0, -1);
+
+    if (queue.length === 0) {
+      // Add user to queue
+      await redisClient.lPush(
+        QUEUE_KEY,
+        JSON.stringify({ userId, username, socketId: socket.id })
+      );
+      socket.emit('waiting_for_partner', { message: 'Looking for a chat partner...' });
+      return;
+    }
+
+    // Pop until we find a different user
+    while (queue.length > 0) {
+      const popped = await redisClient.rPop(QUEUE_KEY);
+      if (!popped) break;
+
+      const potentialPartner = JSON.parse(popped);
+      if (potentialPartner.userId !== userId) {
+        partnerInfo = potentialPartner;
+        break;
+      }
+    }
+
+    // If no partner found (only self in queue)
+    if (!partnerInfo) {
+      await redisClient.lPush(
+        QUEUE_KEY,
+        JSON.stringify({ userId, username, socketId: socket.id })
+      );
+      socket.emit('waiting_for_partner', { message: 'Looking for a chat partner...' });
+      return;
+    }
+
+    // Proceed to create room
+    const partnerSocket = io.sockets.sockets.get(partnerInfo.socketId);
+    if (!partnerSocket) {
+      logger.warn('Partner socket not found, requeue user', { partnerInfo });
+      await redisClient.lPush(
+        QUEUE_KEY,
+        JSON.stringify({ userId, username, socketId: socket.id })
+      );
+      return;
+    }
+
+    const roomId = `room_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    socket.join(roomId);
+    partnerSocket.join(roomId);
+
+    const roomData = {
+      user1: { userId, username, socketId: socket.id },
+      user2: { userId: partnerInfo.userId, username: partnerInfo.username, socketId: partnerInfo.socketId }
+    };
+    activeRooms.set(roomId, roomData);
+
+    // Notify both users
+    socket.emit('chat_started', { roomId, partner: partnerInfo.username });
+    partnerSocket.emit('chat_started', { roomId, partner: username });
+
+    logger.info('Chat started', { roomId, user1: username, user2: partnerInfo.username });
+  } catch (error) {
+    logger.error('Error in find_chat', { error: error.message, userId, username });
+    socket.emit('error', { message: 'Failed to find chat partner' });
+  }
+});
+
 
   // Handle sending messages
   socket.on('send_message', async (data) => {
@@ -196,6 +190,9 @@ io.on('connection', (socket) => {
       const blocked = await BlockedUser.findOne({ userId: socket.userId });
       if (blocked) {
         socket.emit('blocked_user', { message: 'You are temporarily blocked from sending messages.' });
+        socket.to(roomId).emit('partner_blocked', { 
+          message: `${username} has been blocked and cannot send messages.` 
+        });
         logger.warn(`Blocked user ${socket.userId} attempted to send message`);
         return;
       }
@@ -225,7 +222,6 @@ io.on('connection', (socket) => {
         message,
         timestamp: new Date().toISOString()
       });
-      console.log(roomId, '---roomId---')
       await sendToQueue({ userId: socket.userId, message, sentAt: new Date().toISOString() });
       
       console.log('Message sent', { roomId, username, message });

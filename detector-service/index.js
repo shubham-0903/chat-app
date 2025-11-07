@@ -1,12 +1,16 @@
 require("dotenv").config();
 const amqp = require("amqplib");
 const { VIOLATION_PATTERNS } = require("./constants/patterns");
+const connectDB = require("./src/config/db");
+const { detectViolations } = require("./src/service/detectore");
 
 const CHAT_QUEUE = "chat_message";
 const STRIKE_QUEUE = "strikes";
 
 async function startDetector() {
   try {
+    // mongodb connection
+     await connectDB();
     // Connect to RabbitMQ
     const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost";
     const connection = await amqp.connect(RABBITMQ_URL);
@@ -27,7 +31,7 @@ async function startDetector() {
 
       console.log(`Received message from ${userId}:`, message);
 
-      const violations = detectViolations(message);
+      const violations = await detectViolations(message);
 
       if (violations.length > 0) {
         console.log(`Violations found:`, violations.map(v => v.type));
@@ -56,12 +60,6 @@ async function startDetector() {
   } catch (error) {
     console.error(" Detector service error:", error);
   }
-}
-
-function detectViolations(message) {
-  return VIOLATION_PATTERNS.filter((pattern) =>
-    pattern.regex.test(message)
-  );
 }
 
 startDetector();
