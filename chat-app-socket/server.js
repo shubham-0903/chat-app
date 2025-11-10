@@ -34,12 +34,14 @@ const ChatMessage = require('./models/ChatMessage');
 const ChatSession = require('./models/ChatSession');
 const BlockedUser = require('./models/BlockedUser');
 
+const url = new URL(process.env.REDIS_URL);
+
 // Redis client setup
 const redisClient = redis.createClient({
-  socket: {
-    host: 'localhost',
-    port: 6379
-  }
+ socket: {
+    host: url.hostname,
+    port: url.port,
+  },
 });
 
 const QUEUE_KEY = 'chat:queue';
@@ -188,6 +190,7 @@ io.on('connection', (socket) => {
     try {
       // Save message to MongoDB
       const blocked = await BlockedUser.findOne({ userId: socket.userId });
+      console.log(blocked, await BlockedUser.find(), '------sdfd-----')
       if (blocked) {
         socket.emit('blocked_user', { message: 'You are temporarily blocked from sending messages.' });
         socket.to(roomId).emit('partner_blocked', { 

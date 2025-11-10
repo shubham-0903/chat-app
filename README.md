@@ -13,10 +13,6 @@ This repository contains a multi-service chat application split into six service
 
 Before running the services, make sure you have the following installed and running on your machine or accessible from your environment:
 
-- Node.js (v14+ recommended)
-- MongoDB
-- RabbitMQ
-- Redis
 
 You can use Docker to run these quickly for local development. Example (optional):
 
@@ -26,6 +22,21 @@ docker run -d --name mongo -p 27017:27017 mongo:6
 docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
 docker run -d --name redis -p 6379:6379 redis:7
 ```
+
+## Docker / Containerized development
+
+you can also run the docker file to start all the services using below command. 
+
+Quick usage:
+
+```bash
+# from repo root - build and start everything
+docker compose up --build
+
+# stop
+docker compose down
+```
+
 
 ## Environment variables
 
