@@ -2,7 +2,7 @@
 
 This repository contains a multi-service chat application split into six services:
 
-- `admin-portal` — Frontend admin portal
+- `admin-portal` — Frontend admin portal (admin email - admin@gmail.com, password - admin123)
 - `chat-app-frontend` — Chat application frontend (user-facing)
 - `chat-app-api` — API service (authentication, user management, rules)
 - `chat-app-socket` — Chat backend / socket server
