@@ -30,7 +30,12 @@ setupPassport(passport);
 app.use("/api", routes);
 
 // Start server
-app.listen(PORT, async () => {
-  await connectDB();
-  logger.info(`API Server running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, async () => {
+    await connectDB();
+    logger.info(`API Server running on http://localhost:${PORT}`);
+  });
+}
+
+
+module.exports = app;

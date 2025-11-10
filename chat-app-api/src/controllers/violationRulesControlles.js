@@ -17,7 +17,7 @@ exports.createRule = async (req, res) => {
   }
 };
 
-// ✅ Get all rules
+//  Get all rules
 exports.getAllRules = async (req, res) => {
   try {
     const rules = await ViolationRule.find().sort({ createdAt: -1 });
@@ -27,7 +27,7 @@ exports.getAllRules = async (req, res) => {
   }
 };
 
-// ✅ Get a single rule by ID
+//  Get a single rule by ID
 exports.getRuleById = async (req, res) => {
   try {
     const rule = await ViolationRule.findById(req.params.id);
@@ -38,7 +38,7 @@ exports.getRuleById = async (req, res) => {
   }
 };
 
-// ✅ Update a rule
+// Update a rule
 exports.updateRule = async (req, res) => {
   try {
     const { type, words, message, isActive } = req.body;
@@ -54,7 +54,7 @@ exports.updateRule = async (req, res) => {
   }
 };
 
-// ✅ Delete a rule
+// Delete a rule
 exports.deleteRule = async (req, res) => {
   try {
     const deleted = await ViolationRule.findByIdAndDelete(req.params.id);
