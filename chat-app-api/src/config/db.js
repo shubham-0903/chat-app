@@ -3,9 +3,7 @@ const logger = require("./logger");
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      dbName: "chat-app",
-    });
+    await mongoose.connect(process.env.MONGO_URI);
     logger.info("MongoDB connected successfully");
   } catch (err) {
     logger.error("MongoDB connection error:", err);
